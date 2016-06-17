@@ -1,7 +1,7 @@
 # STBonjour
 Swift implementation of Bose SoundTouch device discovery using Bonjour. This project is meant as a kick start to your SoundTouch applications.
 
-![Swift logo](https://www.topcoder.com/wp-content/uploads/2014/08/Apple_Swift_Logo-sm.png "Swift logo")
+![Example](http://www.ericd.net/stDiscoveryImage.jpg "Example")
 
 ### Requirements
 ----
@@ -36,7 +36,3 @@ Feel free to tackle some of this on your own or in general to make improvements 
 2. Device removal UI updating.
 3. A more robust discovery loop and UI delivery.
 4. At times with the presence of a multitude of SoundTouch devices this application will find and gather data for almost all devices - sometimes all. It should always find all of them.
-
-### Example of application running
-
-![Example](http://www.ericd.net/stDiscoveryImage.jpg "Example")
