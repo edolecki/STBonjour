@@ -1,7 +1,7 @@
 # STBonjour
 Swift implementation of Bose SoundTouch device discovery using Bonjour. This project is meant as a kick start to your SoundTouch applications.
 
-![Swift logo](https://awaissoftnews.files.wordpress.com/2014/09/apple_swift_logo.png "Swift logo")
+![Swift logo](https://www.topcoder.com/wp-content/uploads/2014/08/Apple_Swift_Logo-sm.png "Swift logo")
 
 ### Requirements
 ----
