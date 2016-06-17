@@ -32,6 +32,7 @@ Thanks to SWXMLHash.swift written by David Mohundro - which is used in this proj
 ----
 Feel free to tackle some of this on your own or in general to make improvements to this project. This was my very first foray into Bonjour discovery and there might be better ways of getting things done. 
 
-1. Device removal UI updating.
-2. A more robust discovery loop and UI delivery.
-3. At times with the presence of a multitude of SoundTouch devices this application will find and gather data for almost all devices - sometimes all. It should always find all of them.
+1. Refresh mechanism to rescan the network.
+2. Device removal UI updating.
+3. A more robust discovery loop and UI delivery.
+4. At times with the presence of a multitude of SoundTouch devices this application will find and gather data for almost all devices - sometimes all. It should always find all of them.
