@@ -24,6 +24,10 @@ If you need a copy of the Bose SoundTouch Developers API documentation, you can 
 
 You will receive (after a request) the Discovery documentation, WebServices documentation, and LicenseAgreement. There is also a link to API Support at that page.
 
+### Shout Out
+----
+Thanks to SWXMLHash.swift written by David Mohundro - which is used in this project to make XML parsing much easier. This is used when getting information back from each discovered device and parsing it down.
+
 ### ToDo Items
 ----
 Feel free to tackle some of this on your own or in general to make improvements to this project. This was my very first foray into Bonjour discovery and there might be better ways of getting things done. 
