@@ -36,3 +36,7 @@ Feel free to tackle some of this on your own or in general to make improvements 
 2. Device removal UI updating.
 3. A more robust discovery loop and UI delivery.
 4. At times with the presence of a multitude of SoundTouch devices this application will find and gather data for almost all devices - sometimes all. It should always find all of them.
+
+### Example of application running
+
+![Example](https://www.ericd.net/stDiscoveryImage.jpg "Example")
