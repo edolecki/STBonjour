@@ -39,4 +39,4 @@ Feel free to tackle some of this on your own or in general to make improvements 
 
 ### Example of application running
 
-![Example](https://www.ericd.net/stDiscoveryImage.jpg "Example")
+![Example](http://www.ericd.net/stDiscoveryImage.jpg "Example")
