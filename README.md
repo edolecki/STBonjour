@@ -1,5 +1,7 @@
 # STBonjour
-Swift implementation of Bose SoundTouch device discovery using Bonjour. This project is meant as a kick start to your SoundTouch applications.
+Swift implementation of Bose SoundTouch device discovery using Bonjour. This project is meant as a kick start to your SoundTouch applications. 
+
+Fri Jul 8 Update: I have added a bunch of functionality to control aspects of discovered devices. Select a found device and you are presented with the presets and information about them. You'll get standby/on power states. You'll get volume values and can change volume with the present slider. 
 
 ![Example](http://www.ericd.net/stDiscoveryImage.jpg "Example")
 
