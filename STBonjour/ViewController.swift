@@ -7,6 +7,8 @@
 //
 
 import UIKit
+import WatchConnectivity
+import Foundation
 
 struct Speaker
 {
@@ -36,7 +38,7 @@ struct Preset
     }
 }
 
-class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegate, UITableViewDataSource, PresetButtonDelegate
+class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegate, UITableViewDataSource, PresetButtonDelegate, WCSessionDelegate
 {
     var nsns: NSNetService?
     var nsnsdel: BMNSDelegate?
@@ -61,10 +63,30 @@ class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegat
     var titleConstructor: TitleConstructor = TitleConstructor()
     var tileDisplay: GenericTileDisplay!
     
+    var session:WCSession!
+    
+    
+    
     override func viewDidLoad()
     {
         super.viewDidLoad()
         self.view.backgroundColor = UIColor.blackColor()
+        
+        if WCSession.isSupported() {
+            session = WCSession.defaultSession()
+            session.delegate = self
+            session.activateSession()
+            
+            /*
+            let dict = ["status":"load"]
+            //session.transferUserInfo(dict)
+            session.sendMessage(dict, replyHandler: {(_: [String : AnyObject]) -> Void in
+                // handle reply from iPhone app here
+                }, errorHandler: {(error ) -> Void in
+                    // catch any errors here
+            })
+            */
+        }
         
         header = UILabel(frame: CGRect(x: 0, y: 50, width: self.view.frame.width, height: 20))
         header.textAlignment = .Center
@@ -169,8 +191,290 @@ class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegat
         EDProgressView.shared.showProgressView(view)
         
         nsb?.searchForServicesOfType(BM_TYPE, inDomain: BM_DOMAIN)
+    }    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    // Information FROM Apple Watch Extension. Try to get this to work.
+    
+    // Not using.
+    func session(session: WCSession, didReceiveUserInfo userInfo: [String : AnyObject]) {
+        print(userInfo) // Should be "status":"fetch"
+        if let info = userInfo as? Dictionary<String,String>{
+            if let s = info["status"]{
+                print(s) // Should be "fetch"
+            }
+        }
     }
-
+    
+    //MARK: - Message from Watch Extension -
+    
+    func session(session: WCSession, didReceiveMessage message: [String : AnyObject])
+    {
+        print("iOS App got from watch: \(message)")
+        
+        // Starts a background task with 3 minute timeout. Found this online - not sure it's good.
+        // http://stackoverflow.com/questions/31618550/how-to-wake-up-iphone-app-from-watchos-2
+        
+        let application = UIApplication.sharedApplication()
+        var identifier = UIBackgroundTaskInvalid
+        let endBlock:dispatch_block_t = {() -> Void in
+            if identifier != UIBackgroundTaskInvalid {
+                application.endBackgroundTask(identifier)
+            }
+            identifier = UIBackgroundTaskInvalid
+        }
+        identifier = application.beginBackgroundTaskWithExpirationHandler(endBlock)
+        
+        if let info = message as? Dictionary<String,String>
+        {
+            if let s = info["status"] {
+                print(s) // Should be "fetch"
+            }
+            
+            if let s = info["volume"]
+            {
+                print("vol: \(s)")
+                
+                // Could be "87__Eric ST 30"
+                
+                let array = s.componentsSeparatedByString("__")
+                let vol = array[0]
+                let thisSpeakerName = array[1]
+                print("We have volume of \(Int(vol)) for speaker \(thisSpeakerName)")
+                
+                // Now actually set it.
+                
+                self.setSpeakerVolumeFromWatch(Int(vol)!, speakerName: thisSpeakerName) // We should send name so we get from watch & get the IP.
+            }
+            
+            // Watch app told us to navigate to a preset.
+            
+            if let s = info["preset"]
+            {
+                if selIndex == -1 {
+                    return
+                }
+                let thisSpeakerIP = speakerObjectArray[selIndex].IPAddress
+                let url = NSURL(string:"http://\(thisSpeakerIP):8090/key")
+                let session = NSURLSession.sharedSession()
+                let request = NSMutableURLRequest(URL: url!)
+                request.HTTPMethod = "POST"
+                request.cachePolicy = NSURLRequestCachePolicy.ReloadIgnoringCacheData
+                let paramString = "<key state=\"press\" sender=\"Gabbo\">PRESET_\(s)</key>"
+                
+                request.HTTPBody = paramString.dataUsingEncoding(NSUTF8StringEncoding)
+                let task = session.dataTaskWithRequest(request) {
+                    (
+                    let data, let response, let error) in
+                    guard let _:NSData = data, let _:NSURLResponse = response  where error == nil else {
+                        print("error")
+                        return
+                    }
+                    let dataString = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                    print("dataString: '\(dataString!)'")
+                }
+                task.resume()
+                
+                delay(0.25){
+                    let paramString2 = "<key state=\"release\" sender=\"Gabbo\">PRESET_\(s)</key>"
+                    request.HTTPBody = paramString2.dataUsingEncoding(NSUTF8StringEncoding)
+                    let task2 = session.dataTaskWithRequest(request) {
+                        (
+                        let data, let response, let error) in
+                        guard let _:NSData = data, let _:NSURLResponse = response  where error == nil else {
+                            print("error")
+                            return
+                        }
+                        let dataString = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                        print("dataString: '\(dataString!)'")
+                    }
+                    task2.resume()
+                }
+                
+                delay(0.50){
+                    self.getSpeakerInfo()
+                }
+            }
+            
+            // This will cause a reload into the Apple Watch too.
+            
+            if let s = info["refresh"]{
+                print(s)
+                 dispatch_async(dispatch_get_main_queue()) {
+                    self.refreshSearch() 
+                }
+            }
+            
+            // Loop through this list and find the correct speaker and select it programatically.
+            
+            if let s = info["selected"] {
+                
+                for i in 0..<speakerObjectArray.count {
+                    if s == speakerObjectArray[i].Name {
+                        
+                        // We should select it in the tableview.
+                        
+                        let rowToSelect = NSIndexPath(forRow: i, inSection: 0)
+                        
+                        dispatch_async(dispatch_get_main_queue())
+                        {
+                            // Anything needed on UI thread.
+                            
+                            self.tableView.selectRowAtIndexPath(rowToSelect, animated: true, scrollPosition: .None)
+                            self.tableView(self.tableView, didSelectRowAtIndexPath: rowToSelect)
+                        }
+                        break
+                    }
+                }
+            }
+            
+            // Watch extension asked for current volume.
+            
+            if let s = info["request"]{
+                if s == "vol" {
+                    
+                    // Send the current speaker volume to the watch extension.
+                    
+                    let window = UIApplication.sharedApplication().keyWindow
+                    let vc = window?.rootViewController as! ViewController
+                    let thisDictionary:[String:String] = ["volumeValue":"\(self.speakerVolume)"]
+                    
+                    vc.session.sendMessage(thisDictionary, replyHandler: {(_: [String : AnyObject]) -> Void in
+                            // handle reply from iPhone app here
+                        }, errorHandler: {(error ) -> Void in
+                            // catch any errors here
+                    })
+                    
+                }
+            }
+            
+            // Request from watch extension (PresetViewController).
+            
+            if let s = info["needPresetData"]
+            {
+                let index = Int(s)
+                var useIndex = index! - 1
+                if useIndex < 0 {
+                    useIndex = 0
+                }
+                let preset:Preset = self.presetObjectArray[useIndex]
+                let p1 = preset.name
+                let p2 = preset.source
+                
+                let window = UIApplication.sharedApplication().keyWindow
+                let vc = window?.rootViewController as! ViewController
+                
+                // index needs to be unwrapped or it's an Optional. This caused an hour of searching around.
+                
+                let thisDictionary:[String:String] = ["description":"\(index!)_\(p1)\n\n\(p2)"] //index! alleviates Optional(index)
+                vc.session.sendMessage(thisDictionary, replyHandler: {(_: [String : AnyObject]) -> Void in
+                        // handle reply from iPhone app here
+                    }, errorHandler: {(error ) -> Void in
+                        // catch any errors here
+                })
+            }
+            
+            // Watch extension launched and on it's init asks if there is a list already.
+            // If so, send it to the watch extension. Similar to the refresh operation.
+            
+            if let s = info["doYouHaveASpeakerList"] {
+                
+                print(s)
+                
+                let window = UIApplication.sharedApplication().keyWindow
+                let vc = window?.rootViewController as! ViewController
+                
+                if vc.speakerObjectArray.count > 0 {
+                    var thisDictionary = [String:String]()
+                    for (index,speaker) in vc.speakerObjectArray.enumerate(){
+                        thisDictionary["speaker_\(index)"] = speaker.Name
+                    }
+                    vc.session.sendMessage(thisDictionary, replyHandler: {(_: [String : AnyObject]) -> Void in
+                            // handle reply from iPhone app here
+                        }, errorHandler: {(error ) -> Void in
+                            // catch any errors here
+                    })
+                } else {
+                    
+                    // There were no found speakers from the iOS application yet.
+                    print("Don't have any found speakers. \(vc.speakerObjectArray.count)")
+                }
+            }
+            
+            // The Apple Watch extension requested if we have a currently playing preset. Tell it if we do.
+            
+            if let s = info["requestCurrentPreset"]{
+                
+                print(s)
+                
+                // Allow things to settle.
+                
+                delay(0.5){
+                    
+                    print("requestCurrentPreset called in VC")
+                    print(self.presetTitle.text!, self.presetObjectArray.count)
+                    
+                    let sentence = self.presetTitle.text!
+                    var lines:[String] = []
+                    sentence.enumerateLines{ lines.append($0.line) }
+                    let trueTitle = lines[0]
+                    print(trueTitle)
+                    
+                    for i in 0..<self.presetObjectArray.count
+                    {
+                        print(self.presetObjectArray[i].name, trueTitle)
+                        
+                        if self.presetObjectArray[i].name == trueTitle {
+                            
+                            print("sending data to watch extension.")
+                            
+                            let index:Int = self.presetObjectArray[i].id + 1 // zero-based fix
+                            let stringIndex = String(index)
+                            
+                            // Make sure index isn't an optional when sent.
+                            
+                            let window = UIApplication.sharedApplication().keyWindow
+                            let vc = window?.rootViewController as! ViewController
+                            let thisDictionary = ["presetIndex":"\(stringIndex)"]
+                            
+                            vc.session.sendMessage(thisDictionary, replyHandler: {(_: [String : AnyObject]) -> Void in
+                                // handle reply from iPhone app here
+                                }, errorHandler: {(error ) -> Void in
+                                    // catch any errors here
+                            })
+                            
+                            break
+                        }
+                    }
+                }
+                
+                
+                
+                
+                
+                
+            }
+        }
+        
+        /*
+        dispatch_async(dispatch_get_main_queue()) {
+            // Anything needed on UI thread.
+            
+        }
+        */
+    }
+    
     // PresetButtonView DELEGATE method
     
     func presetButtonPressed(sender:PresetButtonView) {
@@ -181,7 +485,7 @@ class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegat
         
         tileDisplay.updateTextDisplay("")
         
-        print(sender.tag)
+        //print(sender.tag)
         let thisSpeakerIP = speakerObjectArray[selIndex].IPAddress
         let url = NSURL(string:"http://\(thisSpeakerIP):8090/key")
         let session = NSURLSession.sharedSession()
@@ -411,9 +715,11 @@ class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegat
             // Needs to be on UI thread or there is a long pause.
             
             dispatch_async(dispatch_get_main_queue(), {
-                self.presetTitle.text = "\(title!)\n\(source!.lowercaseString)"
-                let myCharacters = self.titleConstructor.translateString(title!)
-                self.tileDisplay.updateTextDisplay(myCharacters)
+                if title != nil && source != nil {
+                    self.presetTitle.text = "\(title!)\n\(source!.lowercaseString)"
+                    let myCharacters = self.titleConstructor.translateString(title!)
+                    self.tileDisplay.updateTextDisplay(myCharacters)
+                }
             })
 
             print(NSString(data: data!, encoding: NSUTF8StringEncoding)!)
@@ -452,6 +758,52 @@ class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegat
         UIView.animateWithDuration(0.2, animations: {
             self.volumeSlider.setValue(val, animated:true)
         })
+    }
+    
+    func setSpeakerVolumeFromWatch(val:Int, speakerName: String)
+    {
+        // A speaker needs to be selected? Or do we send that from the watch? Probably from the watch. Needs to match up.
+        if selIndex == -1 {
+            return
+        }
+        
+        // Speaker name to loop for IP address.
+        var foundIPAddress = ""
+        for i in 0..<speakerObjectArray.count
+        {
+            if speakerName == speakerObjectArray[i].Name
+            {
+                foundIPAddress = speakerObjectArray[i].IPAddress
+                
+                // We should select it in the tableview too. No - should be selected already - this creates redraws.
+                
+                let rowToSelect = NSIndexPath(forRow: i, inSection: 0)
+                tableView.selectRowAtIndexPath(rowToSelect, animated: true, scrollPosition: .None)
+                //tableView(tableView, didSelectRowAtIndexPath: rowToSelect)
+                
+                break
+            }
+        }
+
+        let thisSpeakerIP = foundIPAddress //speakerObjectArray[selIndex].IPAddress
+        let url = NSURL(string:"http://\(thisSpeakerIP):8090/volume")
+        let session = NSURLSession.sharedSession()
+        let request = NSMutableURLRequest(URL: url!)
+        request.HTTPMethod = "POST"
+        request.cachePolicy = NSURLRequestCachePolicy.ReloadIgnoringCacheData
+        let paramString = "<volume>\(val)</volume>"
+        request.HTTPBody = paramString.dataUsingEncoding(NSUTF8StringEncoding)
+        let task = session.dataTaskWithRequest(request) {
+            (
+            let data, let response, let error) in
+            guard let _:NSData = data, let _:NSURLResponse = response  where error == nil else {
+                print("error")
+                return
+            }
+            let dataString = NSString(data: data!, encoding: NSUTF8StringEncoding)
+            print("dataString: '\(dataString!)'")
+        }
+        task.resume()
     }
     
     func setSelectedSpeakerVolume()
@@ -597,11 +949,11 @@ class ViewController: UIViewController, NSNetServiceDelegate, UITableViewDelegat
         cell.textLabel!.font = UIFont(name: "AvenirNext-Regular", size: 16.0)
         cell.backgroundColor = UIColor.clearColor()
         
-        cell.selectionStyle = .Default
-        let v = UIView()
-        v.frame = cell.frame
-        v.backgroundColor = UIColor.darkGrayColor().colorWithAlphaComponent(0.6)
-        cell.selectedBackgroundView = v
+        cell.selectionStyle = .Blue
+        //let v = UIView()
+        //v.frame = cell.frame
+        //v.backgroundColor = UIColor.darkGrayColor().colorWithAlphaComponent(0.6)
+        //cell.selectedBackgroundView = v
         
         // Make sure the IP Address has been found and appended to the array first. Can be out of index.
         
@@ -693,6 +1045,31 @@ class BMNSDelegate : NSObject, NSNetServiceDelegate
             vc.header.text = "\(word) SOUNDTOUCH UNITS DISCOVERED"
             vc.headerSecond.hidden = false
             vc.tableView.reloadData()
+            
+            
+            
+            
+            
+            //Tell the Watch Extension of our discoveries.
+            
+            if vc.speakerObjectArray.count > 0 {
+                print("We found speakers.")
+            } else {
+                print("We found no speakers.")
+                return
+            }
+            
+            
+            var thisDictionary = [String:String]()
+            for (index,speaker) in vc.speakerObjectArray.enumerate(){
+                thisDictionary["speaker_\(index)"] = speaker.Name
+            }
+                        
+            vc.session.sendMessage(thisDictionary, replyHandler: {(_: [String : AnyObject]) -> Void in
+                    // handle reply from iPhone app here
+                }, errorHandler: {(error ) -> Void in
+                    // catch any errors here
+            })
         }
     }
     
@@ -720,6 +1097,25 @@ class BMNSDelegate : NSObject, NSNetServiceDelegate
             let name = xml["info"]["name"].element?.text
             
             //print("Speaker Info: \(name!): \(type!),   MAC: \(mac!), IP: \(ip)")
+            
+            if let s = name {
+                print(s)
+            } else {
+                print("No Name found.")
+                return
+            }
+            if let s = mac {
+                print(s)
+            } else {
+                print("No Mac found.")
+                return
+            }
+            if let s = type {
+                print(s)
+            } else {
+                print("No Type found.")
+                return
+            }
             
             let thisSpeaker = Speaker(ip: "\(ip)", name: name!, mac: mac!, deviceType: type!)
             //print(thisSpeaker)

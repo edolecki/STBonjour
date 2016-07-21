@@ -22,7 +22,8 @@ public class EDProgressView {
         return Static.instance
     }
     
-    public func showProgressView(view: UIView) {
+    public func showProgressView(view: UIView)
+    {
         containerView.frame = view.frame
         containerView.center = view.center
         containerView.backgroundColor = UIColor(hex: 0x000000, alpha: 0.4)
