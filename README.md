@@ -1,7 +1,9 @@
 # STBonjour
 Swift implementation of Bose SoundTouch device discovery using Bonjour. This project is meant as a kick start to your SoundTouch applications. 
 
-Fri Jul 8 Update: I have added a bunch of functionality to control aspects of discovered devices. Select a found device and you are presented with the presets and information about them. You'll get standby/on power states. You'll get volume values and can change volume with the present slider. 
+**Fri Jul 8 Update**: I have added a bunch of functionality to control aspects of discovered devices. Select a found device and you are presented with the presets and information about them. You'll get standby/on power states. You'll get volume values and can change volume with the present slider. 
+
+**Thu Jul 21 Update**: I added an Apple Watch extension and comms between iOS and Watch. By no means is this feature complete or done in the best ways. It's a foundation for adding, fixing, and bettering. Bettering - heh.
 
 ![Example](http://www.ericd.net/stDiscoveryImage.jpg "Example")
 
